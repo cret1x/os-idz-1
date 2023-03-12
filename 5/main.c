@@ -16,21 +16,16 @@ int main(int argc, char ** argv) {
     }
     int fin;
     int fout;
+    int fifo_desc;
     int result;
-    int pipe_read_calc[2];
-    int pipe_calc_write[2];
+    char* pipe_read_calc = "prc.fifo";
+    char* pipe_calc_write = "pcw.fifo";
     char buffer[buf_size];
     ssize_t read_bytes;
     ssize_t written_bytes;
 
-    if (pipe(pipe_read_calc) < 0) {
-        printf("Can\'t open pipe\n");
-        exit(-1);
-    }
-    if (pipe(pipe_calc_write) < 0) {
-        printf("Can\'t open pipe\n");
-        exit(-1);
-    }
+    mknod(pipe_read_calc, S_IFIFO | 0666, 0);
+    mknod(pipe_calc_write, S_IFIFO | 0666, 0);
 
     result = fork();
     if (result < 0) {
@@ -38,9 +33,10 @@ int main(int argc, char ** argv) {
         exit(-1);
     } else if (result > 0) {
         /* Reading Process */
-        close(pipe_read_calc[0]);
-        close(pipe_calc_write[0]);
-        close(pipe_calc_write[1]);
+        if((fifo_desc = open(pipe_read_calc, O_WRONLY)) < 0){
+            printf("[READ]: Can\'t open FIFO for writting\n");
+            exit(-1);
+        }
         printf("[READ]: Reading from file %s...\n", argv[1]);
         fin = open(argv[1], O_RDONLY);
         if (fin < 0) {
@@ -50,14 +46,14 @@ int main(int argc, char ** argv) {
         read_bytes = read(fin, buffer, buf_size);
         if (read_bytes > 0) {
             printf("[READ]: Writing to pipe %ld bytes\n", read_bytes);
-            written_bytes = write(pipe_read_calc[1], buffer, read_bytes);
+            written_bytes = write(fifo_desc, buffer, read_bytes);
             if (written_bytes != read_bytes) {
                 printf("[READ]: Can\'t write all string to pipe\n");
                 exit(-1);
             }
         }
         close(fin);
-        close(pipe_read_calc[1]);
+        close(fifo_desc);
         printf("[READ]: Finished job\n");
     } else {
         result = fork();
@@ -66,26 +62,29 @@ int main(int argc, char ** argv) {
             exit(-1);
         } else if (result > 0) {
             /* Writing process */
-            close(pipe_read_calc[0]);
-            close(pipe_read_calc[1]);
-            close(pipe_calc_write[1]);
             fout = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IXUSR);
             if (fout < 0) {
                 printf("[WRITE]: Can\'t create file\n");
                 exit(1);
             }
+            if((fifo_desc = open(pipe_calc_write, O_RDONLY)) < 0){
+                printf("[WRITE]: Can\'t open FIFO for reading\n");
+                exit(-1);
+            }
             printf("[WRITE]: Reading from pipe...\n");
-            read_bytes = read(pipe_calc_write[0], buffer, buf_size);
+            read_bytes = read(fifo_desc, buffer, buf_size);
             printf("[WRITE]: Writing to file %s %ld bytes\n", argv[2], read_bytes);
             written_bytes = write(fout, buffer, read_bytes);
             close(fout);
-            close(pipe_calc_write[0]);
+            close(fifo_desc);
             printf("[WRITE]: Finished job\n");
         } else {
             /* Processing process */
-            close(pipe_read_calc[1]);
-            close(pipe_calc_write[0]);
-            read_bytes = read(pipe_read_calc[0], buffer, buf_size);
+            if((fifo_desc = open(pipe_read_calc, O_RDONLY)) < 0){
+                printf("[PROC]: Can\'t open FIFO for reading\n");
+                exit(-1);
+            }
+            read_bytes = read(fifo_desc, buffer, buf_size);
             printf("[PROC]: Processing string of %ld bytes...\n", read_bytes);
             for (int i = 0; i < read_bytes; i++) {
                 if ((buffer[i] >= 'A' && buffer[i] <= 'Z') || (buffer[i] >= 'a' && buffer[i] <= 'z')) {
@@ -96,10 +95,14 @@ int main(int argc, char ** argv) {
                     } 
                 }
             }
+            close(fifo_desc);
+            if((fifo_desc = open(pipe_calc_write, O_WRONLY)) < 0){
+                printf("[PROC]: Can\'t open FIFO for writting\n");
+                exit(-1);
+            }
             printf("[PROC]: Writing to pipe %ld bytes\n", read_bytes);
-            written_bytes = write(pipe_calc_write[1], buffer, read_bytes);
-            close(pipe_read_calc[1]);
-            close(pipe_read_calc[0]);
+            written_bytes = write(fifo_desc, buffer, read_bytes);
+            close(fifo_desc);
             printf("[PROC]: Finished job\n");
         }
     }

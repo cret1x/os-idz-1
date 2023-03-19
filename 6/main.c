@@ -15,8 +15,8 @@ int main(int argc, char ** argv) {
     int fin;
     int fout;
     int result;
-    int pipe_read_calc[2];
-    int pipe_calc_write[2];
+    int pipe_read_calc[2];      // Pipe to transfer 1->2
+    int pipe_calc_write[2];     // Pipe to stransfer 2->1
     char buffer[buf_size];
     ssize_t read_bytes;
     ssize_t written_bytes;
@@ -36,6 +36,7 @@ int main(int argc, char ** argv) {
         exit(-1);
     } else if (result > 0) {
         /* Reading Process */
+        // Close pipes that are not is use
         close(pipe_read_calc[0]);
         close(pipe_calc_write[1]);
         printf("[READ + WRITE]: Reading from file %s...\n", argv[1]);
@@ -55,21 +56,22 @@ int main(int argc, char ** argv) {
         }
         close(fin);
         close(pipe_read_calc[1]);
-	fout = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IXUSR);
-            if (fout < 0) {
-                printf("[READ + WRITE]: Can\'t create file\n");
-                exit(1);
-            }
-            printf("[READ + WRITE]: Reading from pipe...\n");
-            read_bytes = read(pipe_calc_write[0], buffer, buf_size);
-            printf("[READ + WRITE]: Writing to file %s %ld bytes\n", argv[2], read_bytes);
-            written_bytes = write(fout, buffer, read_bytes);
-            close(fout);
-            close(pipe_calc_write[0]);
-            printf("[READ + WRITE]: Finished job\n");
-	close(pipe_calc_write[0]);
+	    fout = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IXUSR);
+        if (fout < 0) {
+            printf("[READ + WRITE]: Can\'t create file\n");
+            exit(1);
+        }
+        printf("[READ + WRITE]: Reading from pipe...\n");
+        read_bytes = read(pipe_calc_write[0], buffer, buf_size);
+        printf("[READ + WRITE]: Writing to file %s %ld bytes\n", argv[2], read_bytes);
+        written_bytes = write(fout, buffer, read_bytes);
+        close(fout);
+        close(pipe_calc_write[0]);
+        printf("[READ + WRITE]: Finished job\n");
+        close(pipe_calc_write[0]);
     } else {
             /* Processing process */
+            // Close pipes that are not is use
             close(pipe_read_calc[1]);
             close(pipe_calc_write[0]);
             read_bytes = read(pipe_read_calc[0], buffer, buf_size);

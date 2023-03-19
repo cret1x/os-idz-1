@@ -1,4 +1,3 @@
-// 02-parent-child.c
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -18,12 +17,13 @@ int main(int argc, char ** argv) {
     int fout;
     int fifo_desc;
     int result;
-    char* pipe_read_calc = "prc.fifo";
-    char* pipe_calc_write = "pcw.fifo";
+    char* pipe_read_calc = "prc.fifo";      // Pipe to transfer 1->2
+    char* pipe_calc_write = "pcw.fifo";     // Pipe to transfer 2->3
     char buffer[buf_size];
     ssize_t read_bytes;
     ssize_t written_bytes;
 
+    // Open pipes;
     mknod(pipe_read_calc, S_IFIFO | 0666, 0);
     mknod(pipe_calc_write, S_IFIFO | 0666, 0);
 
@@ -65,7 +65,7 @@ int main(int argc, char ** argv) {
             fout = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IXUSR);
             if (fout < 0) {
                 printf("[WRITE]: Can\'t create file\n");
-                exit(1);
+                exit(-1);
             }
             if((fifo_desc = open(pipe_calc_write, O_RDONLY)) < 0){
                 printf("[WRITE]: Can\'t open FIFO for reading\n");

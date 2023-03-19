@@ -1,4 +1,3 @@
-// 02-parent-child.c
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -17,8 +16,8 @@ int main(int argc, char ** argv) {
     int fin;
     int fout;
     int result;
-    int pipe_read_calc[2];
-    int pipe_calc_write[2];
+    int pipe_read_calc[2];  // Pipe to transfer from 1->2
+    int pipe_calc_write[2]; // Pipe to transfer from 2->3
     char buffer[buf_size];
     ssize_t read_bytes;
     ssize_t written_bytes;
@@ -38,6 +37,7 @@ int main(int argc, char ** argv) {
         exit(-1);
     } else if (result > 0) {
         /* Reading Process */
+        // Close pipes that are not is use
         close(pipe_read_calc[0]);
         close(pipe_calc_write[0]);
         close(pipe_calc_write[1]);
@@ -45,7 +45,7 @@ int main(int argc, char ** argv) {
         fin = open(argv[1], O_RDONLY);
         if (fin < 0) {
             printf("[READ]: Can\'t open file\n");
-            exit(1);
+            exit(-1);
         }
         read_bytes = read(fin, buffer, buf_size);
         if (read_bytes > 0) {
@@ -60,12 +60,14 @@ int main(int argc, char ** argv) {
         close(pipe_read_calc[1]);
         printf("[READ]: Finished job\n");
     } else {
+        // fork again to create 3rd process;
         result = fork();
         if (result < 0) {
             printf("Can\'t fork child\n");
             exit(-1);
         } else if (result > 0) {
             /* Writing process */
+            // Close pipes that are not is use
             close(pipe_read_calc[0]);
             close(pipe_read_calc[1]);
             close(pipe_calc_write[1]);
@@ -83,6 +85,7 @@ int main(int argc, char ** argv) {
             printf("[WRITE]: Finished job\n");
         } else {
             /* Processing process */
+            // Close pipes that are not is use
             close(pipe_read_calc[1]);
             close(pipe_calc_write[0]);
             read_bytes = read(pipe_read_calc[0], buffer, buf_size);
